@@ -86,12 +86,13 @@ sc<-read.table("justice_results.tab",header=TRUE,as.is=TRUE,sep="\t")
 sc <- sc %>%
   filter(pitch_diff > -15)
 
+#this is the original model (a frequentist approach)
 
 m1<-glmer(petitioner_vote~pitch_diff+(1|justiceName),data=sc,family=binomial) 
 pred_m1<-sum(diag(table(ifelse(predict(m1,type="response")>.50,1,0),sc[names(residuals(m1)),"petitioner_vote"])))/length(residuals(m1))
 #kable(tidy(m1), caption = "Replicating Original Model")
 
-
+#this is the new model (a bayesian approach)
 z1 <- stan_glmer(petitioner_vote~pitch_diff+(1|justiceName),data=sc,family=binomial, refresh = 0)
 #kable(tidy(z1), caption = "Replicating Original Model with Bayesian Approach")
 #kable(tidy(z1))
@@ -100,6 +101,9 @@ z1 <- stan_glmer(petitioner_vote~pitch_diff+(1|justiceName),data=sc,family=binom
 
 
 ```{r, plotting main effect, fig.height = 5, fig.width = 6, fig.align = "center", message = FALSE, cache = TRUE}
+
+#this plot the main effect found in the original model in an easy to visualize way
+
 plot_model(m1, type = "pred", terms = c("pitch_diff"), title = "Analyzing the Relationship Between Pitch Difference and Vote", axis.title = c("Pitch Difference (Pitch Toward Petitioner - Pitch Toward Respondent)", "Likelihood of Voting in Favor of Petitioner"))
 
 
@@ -148,12 +152,18 @@ sc1 <- sc %>%
          age = term - yob) %>%
 mutate(center_age = age - mean(age))
 
+#this model adds both the age coefficient and its interraction with pitch difference
 
 m2 <- glmer(petitioner_vote~pitch_diff*age + (1|justiceName),data=sc1,family=binomial)
 
+#this analyzes how many votes this model correctty predicts
+
+pred_m2<-sum(diag(table(ifelse(predict(m2,type="response")>.50,1,0),sc1[names(residuals(m2)),"petitioner_vote"])))/length(residuals(m2))
 
 #tidy(m2)
 #pred_m2<-sum(diag(table(ifelse(predict(m2,type="response")>.50,1,0),sc1[names(residuals(m2)),"petitioner_vote"])))/length(resi#duals(m2))
+
+#I am going to be using the same function as in the last R chunk, but this time it will plot the interraction effect across different age categories
 
 plot_model(m2, type = "pred", terms =  c("pitch_diff", "age"), title = "Analyzing the Interraction Between Age and the Pitch Difference Effect", axis.title = c("Pitch Difference (Pitch Toward Petitioner - Pitch Toward Respondent)", "Likelihood of Voting in Favor of Petitioner"), legend.title = "Age")
 ```
@@ -166,7 +176,12 @@ plot_model(m2, type = "pred", terms =  c("pitch_diff", "age"), title = "Analyzin
 This plot shows the lack of an interraction between the age of the Supreme Court Justice and vocal pitch difference predictors when analyzing the Supreme Court Justices' ultimate vote. This means that the effect reported by the original authors' does not depend on how old the Justice is during the oral argument. Still, it is possible that no interaction was found do to the small range of ages (50-90) since vocal pitch might be a better predictor for younger populations.
 
 ```{r, plotting gender effects, fig.height = 6, fig.width = 7, fig.align = "center", message = FALSE, cache = TRUE}
+
+#model 3 is similar to model 2, but this time is adding the gender coefficient instead of the age one
+
 m3 <- glmer(petitioner_vote~pitch_diff*female + (1|justiceName),data=sc1,family=binomial)
+
+#this analyzes how many votes this model correctty predicts
 
 pred_m3<-sum(diag(table(ifelse(predict(m3,type="response")>.50,1,0),sc1[names(residuals(m3)),"petitioner_vote"])))/length(residuals(m3))
 
@@ -174,9 +189,13 @@ plot_model(m3, type = "pred", terms = c("pitch_diff", "female"), title = "Analyz
 
 #kable(tidy(m3) %>% select(term, estimate,std.error,p.value), caption = "Analyzing Gender Interraction", col.names = c("","Coefficient", "Standard Error","p-value"), digits = 3)
 
+# To better understand the interaction, a more basic linear model is needed
+
 m4 <- glm(petitioner_vote~pitch_diff*female,data=sc1,family=binomial)
 
 #kable(tidy(m4), caption = "Analyzing Significance of Interraction under Linear Model")
+
+#this just looks at how predictive the original model is, but subsetted across male and female justices. This is just another way of analyzing our main findings
 
 sc2 <- sc1 %>%
   filter(female == "female")
@@ -201,9 +220,10 @@ This plot shows the interraction between the gender of a Justice and their vocal
 
 # Supplemental Table
 
-This table combines the results from the main models of my extension. Models 1-3 are all generalized linear mixed-effects models (model 1 is the bayesian version of the original model, model 2 accounts for the age interraction, and model 3 accounts for the gender interraction). Model 4 is a logistic regression model that more specifically looks at the interraction of gender and vocal pitch
+This table combines the results from the main models of my extension. Models 1-3 are all generalized linear mixed-effects models (model 1 is the original model, model 2 accounts for the age interraction, and model 3 accounts for the gender interraction). Model 4 is a logistic regression model that more specifically looks at the interraction of gender and vocal pitch
 
 ```{r, results = "asis"}
+#this will plot all of the main results of my extension in one table
 
 stargazer(m1,m2,m3, m4, intercept.bottom = FALSE, intercept.top = TRUE, omit.stat = c('bic'), dep.var.labels.include = FALSE, dep.var.caption = "", report=('vc*p'), header = F)
           
@@ -240,8 +260,7 @@ Roberts Jr, John G. "Oral Advocacy and the Re‐emergence of a Supreme Court Bar
 Results from Dietrich et al. (2018) were successfully replicated. As an example, this is a replicated version of Table 1 of the original paper
 
 ```{r, include = FALSE}
-### DIEGO: If I am completely honest I do not understand much of what is going on in this code (mostly because we have not touched on generalized linear mixed-effects model)
-### DIEGO: Neverthelles, this paper seems to be very interesting, as it uses audio recordings from courts to see if judges implicitly reveal their verdict leaning during oral arguments, even before arguments and deliberations are done
+sc<-read.table("justice_results.tab",header=TRUE,as.is=TRUE,sep="\t")
 
 ###DIEGO: Ultimately, the experiement shows that the higher emotional arousal or excitement directed at an attorney compared to his or her opponent, the less likely that attorney is to win the Justice’s vote
 
@@ -302,7 +321,6 @@ stargazer(mod0,mod1,mod2,mod3,mod4,type='html',out='table_1.html',intercept.bott
 
 ```{r, results = "asis", message = FALSE}
 
-#This takes the table but embeds it inot the replication pdf instead of into a seperate html
 stargazer(mod0,mod1,mod2,mod3,mod4,intercept.bottom = FALSE, intercept.top = TRUE, omit.stat = c('bic'), dep.var.labels.include = FALSE, dep.var.caption = "", column.labels = c('intercept only','no controls','dal','harvard','liwc'), font.size = "tiny", header = F)
 
 #kable(tidy(m1), caption = "Replicating Original Model")
